@@ -7,7 +7,7 @@ import { Icon } from "./Icon";
 type PortfolioTab = "positions" | "activity" | "orders";
 
 export function Portfolio({ tradingStatus }: { tradingStatus: TradingStatus | null }) {
-  const [address, setAddress] = useState(() => localStorage.getItem("polyfast-address") || tradingStatus?.publicAddress || "");
+  const [address, setAddress] = useState(() => tradingStatus?.publicAddress || localStorage.getItem("polyfast-address") || "");
   const [input, setInput] = useState(address);
   const [positions, setPositions] = useState<Position[]>([]);
   const [activity, setActivity] = useState<Activity[]>([]);
@@ -26,18 +26,37 @@ export function Portfolio({ tradingStatus }: { tradingStatus: TradingStatus | nu
   ), [positions]);
 
   useEffect(() => {
+    const configuredAddress = tradingStatus?.publicAddress?.trim();
+    if (!configuredAddress) return;
+    localStorage.setItem("polyfast-address", configuredAddress);
+    setAddress(configuredAddress);
+    setInput(configuredAddress);
+  }, [tradingStatus?.publicAddress]);
+
+  useEffect(() => {
     if (!address) return;
+    let active = true;
     setLoading(true);
     setError("");
+    setPositions([]);
+    setActivity([]);
     Promise.all([
       api.positions(address),
       api.activity(address),
       tradingStatus?.configured ? api.openOrders().catch(() => []) : Promise.resolve([]),
     ]).then(([nextPositions, nextActivity, nextOrders]) => {
+      if (!active) return;
       setPositions(nextPositions);
       setActivity(nextActivity);
       setOrders(nextOrders);
-    }).catch((reason: Error) => setError(reason.message)).finally(() => setLoading(false));
+    }).catch((reason: Error) => {
+      if (active) setError(reason.message);
+    }).finally(() => {
+      if (active) setLoading(false);
+    });
+    return () => {
+      active = false;
+    };
   }, [address, tradingStatus?.configured]);
 
   function applyAddress() {
