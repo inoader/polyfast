@@ -37,6 +37,7 @@ npm start
 POLYMARKET_PRIVATE_KEY=0x...
 POLYMARKET_FUNDER_ADDRESS=0x...
 POLYMARKET_SIGNATURE_TYPE=0
+POLYGON_RPC_URL=https://polygon-rpc.com
 ```
 
 签名类型必须与账户匹配：

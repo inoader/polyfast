@@ -6,12 +6,14 @@ import { fileURLToPath } from "node:url";
 import { ClobClient, OrderType, Side } from "@polymarket/clob-client-v2";
 import { createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
+import { polygon } from "viem/chains";
 
 const app = express();
 const port = Number(process.env.PORT || 8787);
 const gammaApi = "https://gamma-api.polymarket.com";
 const dataApi = "https://data-api.polymarket.com";
 const clobApi = "https://clob.polymarket.com";
+const polygonRpcUrl = process.env.POLYGON_RPC_URL || "https://polygon-rpc.com";
 const addressPattern = /^0x[a-fA-F0-9]{40}$/;
 const tokenPattern = /^\d{10,80}$/;
 const cache = new Map<string, { expiresAt: number; value: unknown }>();
@@ -195,7 +197,7 @@ async function getTradingClient() {
 
   tradingClientPromise ??= (async () => {
     const account = privateKeyToAccount(config.privateKey as `0x${string}`);
-    const signer = createWalletClient({ account, transport: http() });
+    const signer = createWalletClient({ account, chain: polygon, transport: http(polygonRpcUrl) });
     const temporary = new ClobClient({ host: clobApi, chain: 137, signer });
     const creds = await temporary.createOrDeriveApiKey();
     return new ClobClient({
@@ -208,7 +210,12 @@ async function getTradingClient() {
     });
   })();
 
-  return tradingClientPromise;
+  try {
+    return await tradingClientPromise;
+  } catch (error) {
+    tradingClientPromise = null;
+    throw error;
+  }
 }
 
 app.get("/api/trading/status", (_request, response) => {
